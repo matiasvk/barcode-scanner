@@ -7,13 +7,12 @@ export const BarcodeImageReader: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [copied, setCopied] = useState<boolean>(false); // Uusi tila kopiointi-ilmoitukselle
+  const [copied, setCopied] = useState<boolean>(false);
 
   const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Nollataan vanhat tilat uutta skannausta varten
     setScanResult(null);
     setBarcodeFormat(null);
     setError(null);
@@ -31,12 +30,16 @@ export const BarcodeImageReader: React.FC = () => {
       setScanResult(textResult);
       setBarcodeFormat(result.getBarcodeFormat().toString());
 
-      // Automaattinen kopiointi leikepöydälle
+      // Yritetään kopioida koodi taustalla korjaamalla mahdolliset leikepöytävirheet
       if (navigator.clipboard) {
-        await navigator.clipboard.writeText(textResult);
-        setCopied(true);
-        // Piilotetaan "Copied!"-teksti 3 sekunnin kuluttua
-        setTimeout(() => setCopied(false), 3000);
+        try {
+          await navigator.clipboard.writeText(textResult);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 3000);
+        } catch (clipboardError) {
+          // Vaimennetaan virhe, jos selain estää kopioinnin (ei näytetä käyttäjälle)
+          console.warn("Clipboard access denied or failed, skipped auto-copy.", clipboardError);
+        }
       }
     } catch (err) {
       setError("No visible barcode could be detected. Try a clearer image.");
@@ -77,7 +80,6 @@ export const BarcodeImageReader: React.FC = () => {
           <p style={{ margin: '0 0 5px 0' }}><strong>Result:</strong> {scanResult}</p>
           <p style={{ margin: 0, fontSize: '0.85em', color: '#137333' }}><strong>Format:</strong> {barcodeFormat}</p>
           
-          {/* Visuaalinen kuittaus kopioinnista */}
           {copied && (
             <span style={{ 
               position: 'absolute', 
