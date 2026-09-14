@@ -22,30 +22,39 @@ export const BarcodeImageReader: React.FC = () => {
     const imageUrl = URL.createObjectURL(file);
     setImagePreview(imageUrl);
 
+    // 1. Vaihe: Yritetään lukea viivakoodi kuvasta
+    let textResult: string | null = null;
+    let formatResult: string | null = null;
+
     try {
       const codeReader = new BrowserMultiFormatReader();
       const result: Result = await codeReader.decodeFromImageUrl(imageUrl);
       
-      const textResult = result.getText();
+      textResult = result.getText();
+      formatResult = result.getBarcodeFormat().toString();
+      
+      // Päivitetään onnistunut tulos heti näkyviin ruudulle
       setScanResult(textResult);
-      setBarcodeFormat(result.getBarcodeFormat().toString());
-
-      // Yritetään kopioida koodi taustalla korjaamalla mahdolliset leikepöytävirheet
-      if (navigator.clipboard) {
-        try {
-          await navigator.clipboard.writeText(textResult);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 3000);
-        } catch (clipboardError) {
-          // Vaimennetaan virhe, jos selain estää kopioinnin (ei näytetä käyttäjälle)
-          console.warn("Clipboard access denied or failed, skipped auto-copy.", clipboardError);
-        }
-      }
+      setBarcodeFormat(formatResult);
     } catch (err) {
+      // Virhe näytetään VAIN jos viivakoodia ei pystytty lukemaan laisinkaan
       setError("No visible barcode could be detected. Try a clearer image.");
-      console.error(err);
+      console.error("Barcode decoding failed:", err);
     } finally {
       setLoading(false);
+    }
+
+    // 2. Vaihe: Yritetään kopioida leikepöydälle VASTA kun lukeminen on varmasti onnistunut
+    // Tämä on kokonaan ensimmäisen try-catchin ulkopuolella, joten se ei voi aiheuttaa virheilmoitusta
+    if (textResult && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(textResult);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+      } catch (clipboardError) {
+        // Vaimennetaan hiljaa, jos selain tai suojaus estää automaattisen kopioinnin
+        console.warn("Clipboard access denied, skipped auto-copy.", clipboardError);
+      }
     }
   };
 
@@ -92,7 +101,7 @@ export const BarcodeImageReader: React.FC = () => {
               borderRadius: '3px',
               fontWeight: 'bold'
             }}>
-              Copied to clipboard!
+              Copied!
             </span>
           )}
         </div>
